@@ -26,6 +26,7 @@ module Sidekiq
               #test if job should be enequed
               # if yes add job to queue
               begin
+                logger.info "[sidekiq-pooler] test_and_enque_for_time for job '#{job.name}', valid: '#{job.valid?}', time_now: '#{time_now}'"
                 job.test_and_enque_for_time! time_now if job && job.valid?
               rescue => ex
                 #problem somewhere in one job

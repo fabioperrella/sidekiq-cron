@@ -11,7 +11,7 @@ module Sidekiq
       extend Util
 
       #how long we would like to store informations about previous enqueues
-      REMEMBER_THRESHOLD = 24 * 60 * 60 
+      REMEMBER_THRESHOLD = 24 * 60 * 60
 
       #crucial part of whole enquing job
       def should_enque? time
@@ -19,6 +19,7 @@ module Sidekiq
         enqueue = Sidekiq.redis do |conn|
           status == "enabled" && not_enqueued_after?(time) && conn.zadd(job_enqueued_key, time.to_f.to_s, formated_last_time(time))
         end
+        logger.info "should_enque? time: '#{time}', status: '#{status}', result: #{enqueue}"
         enqueue
       end
 
@@ -48,7 +49,7 @@ module Sidekiq
         Sidekiq::Client.push(@message.is_a?(String) ? Sidekiq.load_json(@message) : @message)
 
         save
-        logger.debug { "enqueued #{@name}: #{@message}" }
+        logger.info { "enqueued #{@name}: #{@message}" }
       end
 
       # load cron jobs from Hash
@@ -194,7 +195,7 @@ module Sidekiq
             when String
               begin
                 @klass.constantize.get_sidekiq_options.merge(message_data)
-              rescue 
+              rescue
                 #Unknown class
                 message_data.merge("queue"=>"default")
               end
@@ -211,7 +212,7 @@ module Sidekiq
 
       end
 
-      def status 
+      def status
         @status
       end
 
@@ -258,7 +259,7 @@ module Sidekiq
         }
       end
 
-      def errors 
+      def errors
         @errors ||= []
       end
 
@@ -268,9 +269,9 @@ module Sidekiq
 
         errors << "'name' must be set" if @name.nil? || @name.size == 0
         if @cron.nil? || @cron.size == 0
-          errors << "'cron' must be set" 
+          errors << "'cron' must be set"
         else
-          begin 
+          begin
             cron = Rufus::Scheduler::CronLine.new(@cron)
             cron.next_time(Time.now)
           rescue Exception => e
@@ -325,7 +326,7 @@ module Sidekiq
         end
         logger.info { "Cron Jobs - add job with name: #{@name}" }
       end
-      
+
       # remove job from cron jobs by name
       # input:
       #   first arg: name (string) - name of job (must be same - case sensitive)
@@ -333,7 +334,7 @@ module Sidekiq
         Sidekiq.redis do |conn|
           #delete from set
           conn.srem self.class.jobs_key, redis_key
-          
+
           #delete runned timestamps
           conn.del job_enqueued_key
 
@@ -380,9 +381,10 @@ module Sidekiq
       private
 
       def not_enqueued_after?(time)
+        logger.info "last_enqueue_time: '#{@last_enqueue_time}', last_time: '#{last_time(time)}', time: '#{time}'"
         @last_enqueue_time.nil? || @last_enqueue_time < last_time(time)
       end
-      
+
       # Try parsing inbound args into an array.
       # args from Redis will be encoded JSON;
       # try to load JSON, then failover
